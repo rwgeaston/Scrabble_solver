@@ -68,9 +68,17 @@ class Scrabble_grid
         return strings.join
     end
 
-    def add_word(word, start_coord, direction)
+    def add_word(word, start_coord, direction, blanks_locations = nil)
+        if blanks_locations == nil
+            blanks_locations = []
+        end
         word.each_with_index do |index, letter|
-            set_tile(start_coord.add(direction.multiply(index)), letter)
+            coord_setting = start_coord.add(direction.multiply(index))
+            if blanks_locations.include? index
+                set_tile(coord_setting, '-'.concat(letter))
+            else
+                set_tile(coord_setting, letter)
+            end
         end
     end
 
@@ -134,7 +142,7 @@ class Scrabble_score
 
     end
     
-    def score_word(word, start_coord, direction, current_grid)
+    def score_word(word, start_coord, direction, current_grid, blank_locations)
         parallel_score = 0
         parallel_multiplier = 1
         perpendicular_score = 0
@@ -168,8 +176,9 @@ class Scrabble_score
                 end
                 
             end
-            
-            parallel_score += lm * @letter_scores[letter]
+            if not blank_locations.include? index
+                parallel_score += lm * @letter_scores[letter]
+            end
         end
  
         total_score = parallel_score * parallel_multiplier + perpendicular_score
@@ -185,8 +194,9 @@ class Scrabble_score
     end
     
     def score_word_list(current_grid, word_list)
-        word_list.collect do |word, start_coord, direction|
-            [score_word(word, start_coord, direction, current_grid), word, start_coord, direction]
+        word_list.collect do |word, start_coord, direction, blank_locations|
+            [score_word(word, start_coord, direction, current_grid, blank_locations),
+             word, start_coord, direction, blank_locations]
         end
     end
 end
@@ -234,8 +244,16 @@ class Scrabble_move_finder
         constant_coord = direction.reverse.multiply(line_num)
         (0..(15 - word.size)).select do |start_index|
             start_coord = direction.multiply(start_index).add(constant_coord)
-            if try_placing(current_grid, letters_held, word, start_coord, direction)
-                valid_moves << [word, start_coord, direction]
+            # we need both true/false as well as how the blank tiles were used (if any)
+            word_fits, blanks_used_as, letters_used_locations = try_placing(current_grid, letters_held, word, start_coord, direction)
+            if word_fits
+                if blanks_used_as == []
+                    valid_moves << [word, start_coord, direction, []]
+                else
+                    get_all_blanks_positions(word, blanks_used_as, letters_used_locations).each do |blanks_positions|
+                        valid_moves << [word, start_coord, direction, blanks_positions]
+                    end
+                end
             end 
         end
         return valid_moves
@@ -244,26 +262,30 @@ class Scrabble_move_finder
     def try_placing(current_grid, letters_held, word, start_coord, direction)
         letters_left = letters_held
         if current_grid.get_tile(start_coord.add(direction.multiply(-1))) != 0
-            return false
+            return [false, [], []]
         end
         if current_grid.get_tile(start_coord.add(direction.multiply(word.size))) != 0
-            return false
+            return [false, [], []]
         end
         meets_existing_words = false
+        blanks_used_as = []
+        letters_used_locations = []
         word.each_with_index do |index, letter|
             coord_checking = start_coord.add(direction.multiply(index))
             if current_grid.get_tile(coord_checking) == 0
+                letters_used_locations << index
                 if letters_left.contains(letter)
                    letters_left = letters_left.remove_character(letter)
                 elsif letters_left.contains('-')
+                    blanks_used_as << letter
                     letters_left = letters_left.remove_character('-')
                 else
-                    return false
+                    return [false, [], []]
                 end
             else
                 meets_existing_words = true
                 if current_grid.get_tile(coord_checking) != letter
-                    return false
+                    return [false, [], []]
                 end
             end
             perp_word = current_grid.find_perpendicular_word(coord_checking,
@@ -272,16 +294,36 @@ class Scrabble_move_finder
             if perp_word.size > 1
                 meets_existing_words = true
                 if not is_a_word(perp_word)
-                    return false
+                    return [false, [], []]
                 end
             end
         end
         if letters_left == letters_held
             # no tiles were used
-            return false
+            return [false, [], []]
         end
         # last check: must touch existing used tile
-        return meets_existing_words
+        return [meets_existing_words, blanks_used_as, letters_used_locations]
+    end
+    
+    def get_all_blanks_positions(word, blanks_used_as, letters_used_locations)
+        positions_for_each_blank = blanks_used_as.collect do |letter_looking_for|
+            letters_used_locations.select { |index| word[index] == letter_looking_for }
+        end
+        if blanks_used_as.size == 1
+            return positions_for_each_blank[0].collect{|value| [value]}
+        else
+            # two blanks used
+            blanks_used_as_pairs = []
+            positions_for_each_blank[0].each do |a|
+                positions_for_each_blank[1].each do |b|
+                    if not a == b
+                        blanks_used_as_pairs << [a, b]
+                    end
+                end
+            end
+        end
+        
     end
     
     def first_move(current_grid, letters_held)
@@ -289,7 +331,7 @@ class Scrabble_move_finder
         valid_moves = []
         @word_list.each do |word|
             if checker.try_full_grid(word)
-                (8-word.size..7).each do |start_position|
+                (8 - word.size..7).each do |start_position|
                     valid_moves << [word[1], [7, start_position], [0, 1]]
                 end
             end
