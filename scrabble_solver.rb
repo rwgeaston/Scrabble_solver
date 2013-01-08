@@ -336,12 +336,13 @@ class Scrabble_move_finder
         @word_list.each do |word|
             if checker.try_full_grid(word)
                 blank_positions = []
-                word.each_with_index do |index, letter|
+                word[1].each_with_index do |index, letter|
                     if not letters_held.include? letter
                         blank_positions << index
                     end
-                (8 - word.size..7).each do |start_position|
-                    valid_moves << [word[1], [7, start_position], [0, 1], []]
+                end
+                (8 - word[1].size..7).each do |start_position|
+                    valid_moves << [word[1], [7, start_position], [0, 1], blank_positions]
                 end
             end
         end
