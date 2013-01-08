@@ -169,8 +169,12 @@ class Scrabble_score
                     perp_word_score = 0
                     perp_word.each_char do |perp_letter|
                         perp_word_score += @letter_scores[perp_letter]
-                    end    
-                    perp_word_score += (lm - 1) * @letter_scores[letter]
+                    end
+                    if blank_locations.include? index
+                        perp_word_score -= @letter_scores[letter]
+                    else
+                        perp_word_score += (lm - 1) * @letter_scores[letter]
+                    end
                     perp_word_score *= wm
                     perpendicular_score += perp_word_score
                 end
@@ -331,8 +335,13 @@ class Scrabble_move_finder
         valid_moves = []
         @word_list.each do |word|
             if checker.try_full_grid(word)
+                blank_positions = []
+                word.each_with_index do |index, letter|
+                    if not letters_held.include? letter
+                        blank_positions << index
+                    end
                 (8 - word.size..7).each do |start_position|
-                    valid_moves << [word[1], [7, start_position], [0, 1]]
+                    valid_moves << [word[1], [7, start_position], [0, 1], []]
                 end
             end
         end
