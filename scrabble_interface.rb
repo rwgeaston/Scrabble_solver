@@ -31,7 +31,7 @@ else
   file = File.new("./" + played_word_list, "r")
   file.each do |line|
     line_values = line.strip.split(' ')
-    grid_position_column = line_values[1][1].to_i - 1
+    grid_position_column = line_values[1][1..-1].to_i - 1
     grid_position_row = column_map[line_values[1][0]]
     grid_position = [grid_position_row, grid_position_column]
     direction = directions[line_values[2]]
@@ -71,6 +71,6 @@ elsif display_option == 'extra'
 elsif display_option == 'bigcheater'
   good_answers = answers.sort!.reverse![(0...20)]
   good_answers.each do |i|
-    puts "#{i[0]} #{i[1]} #{column_map_reverse[i[2][1]]}#{(i[2][0] + 1)} #{directions_reverse[i[3]]}"
+    puts "#{i[0]} #{i[1]} #{column_map_reverse[i[2][0]]}#{(i[2][1] + 1)} #{directions_reverse[i[3]]}"
   end
 end
