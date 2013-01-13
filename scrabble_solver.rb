@@ -61,7 +61,13 @@ class Scrabble_grid
         strings = []
         (0...15).each do |row|
             (0...15).each do |column|
-                strings << get_tile([column, row]) << ' '
+                if get_tile([column, row]) == 0
+                    strings << '. '
+                elsif get_tile([column, row]).size == 2
+                    strings << get_tile([column, row])
+                else
+                    strings << get_tile([column, row]) << ' '
+                end
             end
             strings << "\n"
         end
